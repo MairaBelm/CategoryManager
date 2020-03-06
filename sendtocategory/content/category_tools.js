@@ -10,51 +10,6 @@ jbCatMan.quickdump = function (str) {
 }
 
 
-
-
-jbCatMan.loadPreferences = async function (document) {
-  // save on accept
-  let dialog = document.querySelector("dialog");
-  if (dialog) {
-    dialog.addEventListener("dialogaccept", function() {jbCatMan.savePreferences(document)});
-  }  
-
-  for (let node of document.querySelectorAll("[preference]")) {
-    if (node.getAttribute("instantApply") == "true") {
-      node.addEventListener("change", function (event) {jbCatMan.savePreference(event.target);});
-    }
-    jbCatMan.loadPreference(node);    
-  }
-}
-
-jbCatMan.savePreferences = async function (document) {
-  for (let node of document.querySelectorAll("[preference]")) {
-    jbCatMan.savePreference(node);    
-  }
-}
-
-jbCatMan.loadPreference = async function (node) {
-  switch (node.tagName) {
-    case "textbox":
-      node.setAttribute("value", await ConversionHelper.getPref(node.getAttribute("preference")));
-      break;
-  }
-}
-
-jbCatMan.savePreference = async function (node) {
-  switch (node.tagName) {
-    case "textbox":
-      await ConversionHelper.setPref(node.getAttribute("preference"), node.value);
-      break;
-  }
-}
-
-
-
-
-
-
-
 jbCatMan.loadLocales = function(document, i18nAttributes = ["title", "label", "value", "tooltiptext", "placeholder"], i18nButtons = ["accept", "cancel"]) {
   // set all i18n locale values
   for (let i18nAttribute of i18nAttributes) {
@@ -80,7 +35,7 @@ jbCatMan.loadLocales = function(document, i18nAttributes = ["title", "label", "v
       node.getButton(i18nButton).label = ConversionHelper.GetStringFromName(i18nId);
     }      
   }    
-}	
+}
 
 jbCatMan.getLocalizedMessage = function (msg, replacement = "") {
   let localized = msg;

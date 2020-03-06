@@ -19,6 +19,9 @@
   "background": {
     "scripts": ["prefs.js", "background.js"]
   },
+  "options_ui": {
+    "page": "/content/preferences/options.html"
+  },
   "experiment_apis": {
     "legacyprefs": {
       "schema": "api/legacyprefs/schema.json",
@@ -36,10 +39,6 @@
     }
   },  
   "legacy": {
-    "type": "xul",
-    "options": {
-      "page": "chrome://sendtocategory/content/preferences/preferences.xul",
-      "open_in_tab": false
-    }
+    "type": "xul"
   }
 }
