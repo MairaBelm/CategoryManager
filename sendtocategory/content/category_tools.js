@@ -12,12 +12,54 @@ jbCatMan.quickdump = function (str) {
 
 
 
+jbCatMan.loadPreferences = async function (document) {
+  // save on accept
+  let dialog = document.querySelector("dialog");
+  if (dialog) {
+    dialog.addEventListener("dialogaccept", function() {jbCatMan.savePreferences(document)});
+  }  
+
+  for (let node of document.querySelectorAll("[preference]")) {
+    if (node.getAttribute("instantApply") == "true") {
+      node.addEventListener("change", function (event) {jbCatMan.savePreference(event.target);});
+    }
+    jbCatMan.loadPreference(node);    
+  }
+}
+
+jbCatMan.savePreferences = async function (document) {
+  for (let node of document.querySelectorAll("[preference]")) {
+    jbCatMan.savePreference(node);    
+  }
+}
+
+jbCatMan.loadPreference = async function (node) {
+  switch (node.tagName) {
+    case "textbox":
+      node.setAttribute("value", await ConversionHelper.getPref(node.getAttribute("preference")));
+      break;
+  }
+}
+
+jbCatMan.savePreference = async function (node) {
+  switch (node.tagName) {
+    case "textbox":
+      await ConversionHelper.setPref(node.getAttribute("preference"), node.value);
+      break;
+  }
+}
+
+
+
+
+
+
 
 jbCatMan.loadLocales = function(document, i18nAttributes = ["title", "label", "value", "tooltiptext", "placeholder"], i18nButtons = ["accept", "cancel"]) {
   // set all i18n locale values
   for (let i18nAttribute of i18nAttributes) {
-    for (let node of document.querySelectorAll("[i18n-"+i18nAttribute+"]")) {
-      let i18nId = node.getAttribute("i18n-"+i18nAttribute);
+    for (let node of document.querySelectorAll("[i18n-" + i18nAttribute + "]")) {
+      let i18nId = node.getAttribute("i18n-" + i18nAttribute);
       // small convinient hack: if the id ends with a colon, then it is not part of the id
       // but should actually be printed
       let i18nValue = i18nId.endsWith(":") 
@@ -57,12 +99,11 @@ jbCatMan.getLocalizedMessage = function (msg, replacement = "") {
 
 
 
-jbCatMan.init = function () { 
+jbCatMan.init = async function () { 
   //enable or disable debug dump messages
   jbCatMan.printDumps = false;
   jbCatMan.printDumpsIndent = " ";
 
-  jbCatMan.isMFFABInstalled = jbCatMan.checkIfMFFABInstalled(); //we only need to do this once
   jbCatMan.printDebugCounts = Array();
   jbCatMan.printDebugCounts[jbCatMan.printDumpsIndent] = 0;
   
@@ -354,81 +395,25 @@ jbCatMan.moveCategoryBetweenArrays = function (category, srcArray, dstArray) {
     }
 }
 
-//MFFAB integration stuff
-jbCatMan.convertCategory = function (abURI, category) {
-    //get all cards, which are part of the category we want to convert (is empty if all cats get converted)
-    let searchstring = jbCatMan.getCategorySearchString(abURI, [category]);
-    let cards = MailServices.ab.getDirectory(searchstring).childCards;
+jbCatMan.getCategorySeperator = function () {
+  return "\u001A";
+}
 
-    while (cards.hasMoreElements()) {
-        let card = cards.getNext().QueryInterface(Components.interfaces.nsIAbCard);
-
-        let mffabCatArray = jbCatMan.getCategoriesfromCard(card, "Category");
-        let standardCatArray = jbCatMan.getCategoriesfromCard(card, "Categories");
-
-        //if a single cat is to be converted, we take that cat out of the old property and put it into the other property
-        //if all cats are to be converted, we take out ALL cats from the old prop and add all found cats to the other property
-        if (jbCatMan.isMFFABCategoryMode()) { //convert from MFFAB to standard
-            jbCatMan.moveCategoryBetweenArrays(category, mffabCatArray, standardCatArray);
-        } else { //convert from standard to MFFAB
-            jbCatMan.moveCategoryBetweenArrays(category, standardCatArray, mffabCatArray);
-        }
-        
-        jbCatMan.setCategoriesforCard(card, mffabCatArray, "Category");
-        jbCatMan.setCategoriesforCard(card, standardCatArray, "Categories");
-        jbCatMan.modifyCard(card);
-    }
+jbCatMan.getCategoryField = function () {
+  return "Categories";
 }
 
 
-jbCatMan.checkIfMFFABInstalled = function () {
-    let prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefBranch);
-    let sep = "";
-    try {
-        sep = prefs.getCharPref("morecols.category.separator");
-    } catch (ex) {}
-    if (sep != "") return true;
-    else return false;
-}
-
-jbCatMan.isMFFABCategoryMode = function () {
-    let prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefBranch);
-    //make sure, if MFFAB mode is activated, we can actually get the seperator
-    //switch back to standard mode, if not possible
-    if (prefs.getBoolPref("extensions.sendtocategory.mffab_mode")) {
-        //user requested MFFAB mode, is MFFAB installed?
-        if (jbCatMan.isMFFABInstalled) return true;
-            
-        //if we are still here, MFAAB is not installed, switch to default mode
-        prefs.setBoolPref("extensions.sendtocategory.mffab_mode",false); 
-    } 
-    return false;
-}
-
-jbCatMan.getCategorySeperator = function (field = jbCatMan.getCategoryField()) {
-    let prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefBranch);
-    
-    if (field == "Category") return prefs.getCharPref("morecols.category.separator") + " ";
-    else return prefs.getCharPref("extensions.sendtocategory.seperator");
-}
-
-jbCatMan.getCategoryField = function (mode = jbCatMan.isMFFABCategoryMode()) {
-    //everytime we switch books, this information is re-querried
-    if (mode) return "Category";
-    else return "Categories";
-}
-
-
-jbCatMan.getCategoriesFromString = function(catString, seperator = jbCatMan.getCategorySeperator()) {
+jbCatMan.getCategoriesFromString = function(catString) {
   let catsArray = [];
-  if (catString.trim().length>0) catsArray = catString.split(seperator).filter(String);
+  if (catString.trim().length>0) catsArray = catString.split(jbCatMan.getCategorySeperator()).filter(String);
   catsArray.sort();
   
   // Sanity check: Do not include parents.
   return catsArray.filter((e, i, a) => (i == (a.length-1)) || !a[i+1].startsWith(e + " / "));
 }
 
-jbCatMan.getStringFromCategories = function(catsArray, seperator = jbCatMan.getCategorySeperator()) {
+jbCatMan.getStringFromCategories = function(catsArray) {
   if (catsArray.length == 0) return "";
   else {
     let checkedArray = [];
@@ -437,20 +422,20 @@ jbCatMan.getStringFromCategories = function(catsArray, seperator = jbCatMan.getC
         checkedArray.push(catsArray[i]);
       }
     }
-    return checkedArray.join(seperator);
+    return checkedArray.join(jbCatMan.getCategorySeperator());
   }
 }
 
-jbCatMan.getCategoriesfromCard = function (card, field = jbCatMan.getCategoryField()) {
+jbCatMan.getCategoriesfromCard = function (card) {
   let catString = "";
   try {
-    catString = card.getPropertyAsAString(field);
+    catString = card.getPropertyAsAString(jbCatMan.getCategoryField());
   } catch (ex) {}
-  let catsArray = jbCatMan.getCategoriesFromString(catString, jbCatMan.getCategorySeperator(field));
+  let catsArray = jbCatMan.getCategoriesFromString(catString);
   return catsArray;
 }
 
-jbCatMan.setCategoriesforCard = function (card, catsArray,  field = jbCatMan.getCategoryField()) {
+jbCatMan.setCategoriesforCard = function (card, catsArray) {
   let retval = true;
 
   // Sanity check: Skip mailing lists.
@@ -458,10 +443,10 @@ jbCatMan.setCategoriesforCard = function (card, catsArray,  field = jbCatMan.get
     return false;
   
   // Sanity check: Do not include parents.
-  let catsString = jbCatMan.getStringFromCategories(catsArray.filter((e, i, a) => (i == (a.length-1)) || !a[i+1].startsWith(e + " / ")), jbCatMan.getCategorySeperator(field));
+  let catsString = jbCatMan.getStringFromCategories(catsArray.filter((e, i, a) => (i == (a.length-1)) || !a[i+1].startsWith(e + " / ")));
 
   try {
-     card.setPropertyAsAString(field, catsString);
+     card.setPropertyAsAString(jbCatMan.getCategoryField(), catsString);
   } catch (ex) {
     retval = false;
   }
@@ -551,7 +536,7 @@ jbCatMan.updateCategories = function (mode, oldName, newName) {
 
 
 
-jbCatMan.scanCategories = function (abURI, field = jbCatMan.getCategoryField(), quickscan = false) {
+jbCatMan.scanCategories = function (abURI, quickscan = false) {
   //concept decision: we remove empty categories on addressbook switch (select) 
   //-> the category array is constantly cleared and build from scan results
   let data = {};
@@ -565,7 +550,6 @@ jbCatMan.scanCategories = function (abURI, field = jbCatMan.getCategoryField(), 
     
   // scan all addressbooks, if this is the new root addressbook (introduced in TB38)
   // otherwise just scan the selected one
-  let prefs = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefService).getBranch("extensions.sendtocategory.");
   let addressBooks = jbCatMan.getSearchesFromSearchString(abURI);
 
   for (var l = 0; l < addressBooks.length; l++) {
@@ -592,7 +576,7 @@ jbCatMan.scanCategories = function (abURI, field = jbCatMan.getCategoryField(), 
         data.abURI[card.directoryId] = addressBook.URI;
       }
 
-      let catArray = jbCatMan.getCategoriesfromCard(card, field);
+      let catArray = jbCatMan.getCategoriesfromCard(card);
       let CardID = jbCatMan.getUIDFromCard(card);
       if (catArray.length > 0) {
         //add card to all categories it belongs to
