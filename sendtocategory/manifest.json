@@ -17,7 +17,7 @@
   },
   "permissions": ["storage", "unlimitedStorage"],
   "background": {
-    "scripts": ["scripts/prefs.js", "background.js"]
+    "scripts": ["scripts/preferences.js", "background.js"]
   },
   "options_ui": {
     "page": "/content/preferences/options.html"
