@@ -10,7 +10,7 @@ var locales = {
       
       switch (node.tagName.toLowerCase()) {
         case "p":
-          node.innerHTML = browser.i18n.getMessage(i18nId);
+          node.innerHTML = i18nValue;
           break;
       }
     }    
