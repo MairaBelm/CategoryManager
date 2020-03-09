@@ -1,8 +1,14 @@
 async function main() {
-  await preferences.setDefaults({
+  await browser.conversionHelper.init("chrome://sendtocategory/content/ConversionHelper.jsm");
+
+  let defaultPrefs = {
     "extensions.sendtocategory.to_address": ""
-  });  
-  console.log("to_address: " + await preferences.getPref("extensions.sendtocategory.to_address")); 
+  };
+  
+  await preferences.setDefaults(defaultPrefs);
+  await preferences.migrateFromLegacy(defaultPrefs, "");
+  
+  await browser.conversionHelper.notifyStartupCompleted();
 }
 
 main();

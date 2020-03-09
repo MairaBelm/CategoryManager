@@ -18,21 +18,21 @@ jbCatMan.loadLocales = function(document, i18nAttributes = ["title", "label", "v
       // small convinient hack: if the id ends with a colon, then it is not part of the id
       // but should actually be printed
       let i18nValue = i18nId.endsWith(":") 
-        ? ConversionHelper.GetStringFromName(i18nId.slice(0, -1)) + ":"
-        : ConversionHelper.GetStringFromName(i18nId);
+        ? ConversionHelper.i18n.getMessage(i18nId.slice(0, -1)) + ":"
+        : ConversionHelper.i18n.getMessage(i18nId);
       node.setAttribute(i18nAttribute, i18nValue);
     }      
   }
 
   for (let node of document.querySelectorAll("[i18n-textContent]")) {
     let i18nId = node.getAttribute("i18n-textContent");
-    node.textContent = ConversionHelper.GetStringFromName(i18nId);
+    node.textContent = ConversionHelper.i18n.getMessage(i18nId);
   }      
   
   for (let i18nButton of i18nButtons) {
     for (let node of document.querySelectorAll("[i18n-buttonlabel"+i18nButton+"]")) {
       let i18nId = node.getAttribute("i18n-buttonlabel"+i18nButton);
-      node.getButton(i18nButton).label = ConversionHelper.GetStringFromName(i18nId);
+      node.getButton(i18nButton).label = ConversionHelper.i18n.getMessage(i18nId);
     }      
   }    
 }
@@ -43,9 +43,9 @@ jbCatMan.getLocalizedMessage = function (msg, replacement = "") {
     // if the replacement parameter is an Array, make use of the "placeholder" notation of the i18n WebExt API
     // otherwise fall back to the legacy #### replacement
     if (Array.isArray(replacement)) {
-      localized = ConversionHelper.formatStringFromName(msg, replacement);
+      localized = ConversionHelper.i18n.getMessage(msg, replacement);
     } else {
-      localized = ConversionHelper.GetStringFromName(msg).replace("####", replacement);
+      localized = ConversionHelper.i18n.getMessage(msg).replace("####", replacement);
     }
   } catch (e) {}
   

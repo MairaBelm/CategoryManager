@@ -1,19 +1,54 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ *
+ * Portions Copyright (C) Philipp Kewisch (2009-2019)
+ * and John Bieling (2020) */
 
 "use strict";
 
 var EXPORTED_SYMBOLS = ["ConversionHelper"];
 
-var { ExtensionParent } = ChromeUtils.import("resource://gre/modules/ExtensionParent.jsm");
-
-const ADDON_ID = "sendtocategory@jobisoft.de";
-
 var ConversionHelper = {
+  
+  context: null,
+  startupCompleted: false,
+  promisses: [],
+  
+  // Called from legacy code to wait until startup completed
+  webExtensionStartupCompleted: function(msg) {
+    if (this.startupCompleted) {
+      console.log("WX startup already completed. Continuing. [" + msg + "]");
+      return;
+    }
+    
+    console.log("WX startup not yet completed. Pausing. [" + msg + "]");
+    return new Promise(resolve => {
+      this.promisses.push({resolve, msg});
+    });
+  },
+  
+  // Called from WX code to set startupCompleted
+  notifyStartupComplete: function() {
+    this.startupCompleted = true;
+    // Run through all pending promisses and fullfill them
+    for (const p of this.promisses){
+      console.log("WX startup now completed. Continuing. [" + p.msg + "]");
+      p.resolve();
+    }  
+  },
+
+  
+  
+  
   getWXAPI(name, sync=false) {
+    let that = this;
+    
+    // ToDo: Inform the user, he should not call this from within an experiment!
+    //console.log(Cu.getGlobalForObject(this));
+    
     function implementation(api) {
-      let impl = api.getAPI(context)[name];
+      let impl = api.getAPI(that.context)[name];
 
       if (name == "storage") {
         impl.local.get = (...args) => impl.local.callMethodInParentProcess("get", args);
@@ -24,9 +59,11 @@ var ConversionHelper = {
       return impl;
     }
 
-    let extension = ExtensionParent.GlobalManager.getExtension(ADDON_ID);
-    // ToDo: Get the true context
-    let context = { extension , callOnClose : function() {} };
+    if (!this.context) {
+      throw new Error("Extension context not set. Please call browser.conversionHelper.init(aPath) first!");
+    }
+    
+    let extension = this.context.extension;
     
     if (sync) {
       let api = extension.apiManager.getAPI(name, extension, "addon_parent");
@@ -38,15 +75,11 @@ var ConversionHelper = {
     }
   },
   
-  GetStringFromName: function(aName) {
-    return this.getWXAPI("i18n", true).getMessage(aName);
+  i18n: { 
+    getMessage: function(aName, aParams) {
+      return ConversionHelper.getWXAPI("i18n", true).getMessage(aName, aParams);
+    }
   },
-  
-  formatStringFromName: function(aName, aParams, aLength) {
-    return this.getWXAPI("i18n", true).getMessage(aName, aParams);
-  },
-
-  
   
   getPref: async function(aName, aFallback = null) {
     let storage = await this.getWXAPI("storage");

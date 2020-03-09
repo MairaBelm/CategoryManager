@@ -5,23 +5,18 @@ var preferences = {
     for (const pref of prefs) {
         await browser.storage.local.set({ ["pref.default." + pref] : defaultPrefs[pref] });
     }
-
-    // The following migration block can be removed, when definitly all users
-    // have been migrated, or experiments are no longer allowed.
-    
-    // ** MIGRATION BEGIN ** //
-    
+  },
+  
+  migrateFromLegacy: async function(defaultPrefs, prefBranch) {
+    const prefs = Object.keys(defaultPrefs);
     for (const pref of prefs) {
-      let legacyValue = await browser.legacyprefs.get(pref, defaultPrefs[pref]);
-      if (legacyValue) {
-        console.log("Migrating legacy preference <" +pref + "> = <" + legacyValue + ">.");
+      let legacyValue = await browser.legacyprefs.get(prefBranch + pref, defaultPrefs[pref]);
+      if (legacyValue !== null) {
+        console.log("Migrating legacy preference <" + prefBranch + pref + "> = <" + legacyValue + ">.");
         await browser.storage.sync.set({ ["pref.value." + pref] : legacyValue });
-        await browser.legacyprefs.clear(pref);
+        await browser.legacyprefs.clear(prefBranch + pref);
       }
     }
-
-    // ** MIGRATION END ** //
-
   },
    
   getPref: async function(aName, aFallback = null) {
