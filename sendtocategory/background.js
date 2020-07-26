@@ -20,7 +20,7 @@ messenger.WindowListener.registerWindow(
     
 messenger.WindowListener.registerWindow(
   "chrome://messenger/content/addressbook/abContactsPanel.xul", 
-  "chrome://sendtocategory/content/scripts/abContactsPanel.js");
+  "chrome://sendtocategory/content/contactpanel/abContactsPanel_overlay.js");
 
 messenger.WindowListener.registerWindow(
   "chrome://messenger/content/addressbook/abEditCardDialog.xul", 

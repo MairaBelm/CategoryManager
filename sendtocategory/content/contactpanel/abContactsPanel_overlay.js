@@ -1,5 +1,5 @@
-let loader = Components.classes["@mozilla.org/moz/jssubscript-loader;1"].getService(Components.interfaces.mozIJSSubScriptLoader);
-loader.loadSubScript("chrome://sendtocategory/content/category_tools.js");
+var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+Services.scriptloader.loadSubScript("chrome://sendtocategory/content/category_tools.js", this, "UTF-8");
 
 //###################################################
 // overriding a core thunderbird function
@@ -9,7 +9,7 @@ loader.loadSubScript("chrome://sendtocategory/content/category_tools.js");
 // Overiding this function to fix bugs:
 // 1: Also check for secondary email, if primary not present.
 // 2: Do not return anything (not even the name), if no email present, so that addSelectedAddresses (https://dxr.mozilla.org/comm-central/source/mail/components/addrbook/content/abContactsPanel.js#56) does not add contacts without email.
-function GenerateAddressFromCard(card)
+window.GenerateAddressFromCard(card)
 {
   if (!card)
     return "";
@@ -31,9 +31,6 @@ function GenerateAddressFromCard(card)
     return ""
   }
 }
-
-
-
 
 //###################################################
 //adding additional functions to the local jbCatMan Object
@@ -98,3 +95,48 @@ jbCatMan.contactPanelCategoryMenuChanged = function () {
     abResultsTree.view.selection.selectAll();
   }
 }
+
+//###################################################
+//WindowListener API
+//###################################################
+
+
+// called on window load or on add-on activation while window is already open
+function onLoad(wasAlreadyOpen) {
+  console.log("FIRRRRRED");
+  let xul = window.MozXULElement.parseXULToFragment(`
+    <script class="${namespace}" type="text/javascript">
+          jbCatMan.locale.prefixForPeopleSearch = "&sendtocategory.category.label;";
+        jbCatMan.locale.placeholderText = "&sendtocategory.categoryfilter.label;";
+    </script>
+    <vbox class="${namespace}" id="results_box" flex="1">
+        <vbox id="categoryfilter-box" insertafter="panel-bar">
+            <separator class="thin"/>
+            <hbox id="categoryfilter-panel-bar" class="toolbar" align="center" insertafter="panel-bar">
+                <menulist id="CatManCategoryFilterList"
+                oncommand="window.${namespace}.jbCatMan.contactPanelCategoryMenuChanged();" flex="1"
+                persist="value">
+                    <menupopup id="CatManCategoryFilterListPopup" writable="true"/>
+                </menulist>
+            </hbox>
+        </vbox>
+    </vbox>  
+`, 
+    ["chrome://sendtocategory/locale/catman.dtd"]);
+    window.document.documentElement.appendChild(xul);
+
+    document.getElementById("addressbookList").addEventListener("select", jbCatMan.contactPanelCategoryMenuInit, false);  
+  }
+
+// called on window unload or on add-on deactivation while window is still open
+function onUnload(isAddOnShutDown) {
+    // no need to clean up UI on global shutdown
+    if (isAddOnShutDown)
+        return;
+
+    // Remove all our added elements which are tagged with a unique classname
+    let elements = Array.from(window.document.getElementsByClassName(namespace));
+    for (let element of elements) {
+        element.remove();
+    }
+  }
